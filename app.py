@@ -62,7 +62,7 @@ with col2:
             
             c1, c2 = st.columns(2)
             with c1:
-                if st.button("✅ SALVA NEL DIARIO"):
+                if st.button("SALVA NEL DIARIO"):
                     temp_fs = "temp_save.wav"
                     with open(temp_fs, "wb") as f: f.write(st.session_state['audio_bytes_cache'])
                     titolo_auto = f"Ricordo del {datetime.now().strftime('%d/%m/%Y %H:%M')}"
@@ -70,15 +70,15 @@ with col2:
                         if os.path.exists(temp_fs): os.remove(temp_fs)
                         reset_totale()
             with c2:
-                if st.button("🗑️ SCARTA"):
+                if st.button("SCARTA"):
                     reset_totale()
 
-# --- IL MIO LIBRO (ORA MODIFICABILE) ---
+# --- IL MIO LIBRO (MODIFICABILE) ---
 st.markdown("---")
 st.markdown("## Il Mio Libro")
 if lista_ricordi:
     for ricordo in lista_ricordi:
-        with st.expander(f"📖 {ricordo['titolo']}"):
+        with st.expander(f"{ricordo['titolo']}"):
             # Area di testo per ogni ricordo salvato
             nuovo_testo = st.text_area("Testo salvato:", value=ricordo.get('diario_pulito', ''), key=f"edit_{ricordo['id']}", height=150)
             
@@ -86,7 +86,7 @@ if lista_ricordi:
             with col_a:
                 if st.button("Salva Modifica", key=f"btn_up_{ricordo['id']}"):
                     if aggiorna_ricordo(ricordo['id'], nuovo_testo):
-                        st.success("Modificato!")
+                        st.success("Modificato.")
                         st.rerun()
             with col_b:
                 if st.button("Elimina", key=f"btn_del_{ricordo['id']}"):
@@ -100,6 +100,6 @@ st.markdown("---")
 st.markdown("### Archivio Audio")
 if lista_ricordi:
     for ricordo in reversed(lista_ricordi):
-        with st.expander(f"🎙️ Audio: {ricordo['titolo']}"):
+        with st.expander(f"Audio: {ricordo['titolo']}"):
             st.audio(ricordo['audio_url'])
             st.info(f"Stile: {ricordo.get('stile_usato', 'Standard')}")
