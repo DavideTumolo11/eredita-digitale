@@ -3,7 +3,7 @@ import os
 from styles import apply_styles
 from streamlit_mic_recorder import mic_recorder
 from editor_invisibile import trascrivi_audio, pulisci_testo
-from database_manager import salva_ricordo, carica_ricordi, elimina_ricordo, aggiorna_ricordo
+from database_manager import salva_ricordo, carica_ricordi, elimina_ricordo, aggiorna_ricordo, sincronizza_libro_locale
 from datetime import datetime 
 
 # Configurazione pagina
@@ -26,7 +26,7 @@ def reset_totale():
 # Recupero della lista ricordi
 lista_ricordi = carica_ricordi()
 
-# SIDEBAR
+# --- SIDEBAR: STATO, LIBRO E SINCRONIZZAZIONE ---
 with st.sidebar:
     st.markdown("### Stato Sistema")
     st.write("Database: Collegato")
@@ -37,8 +37,27 @@ with st.sidebar:
     stile_editing = st.radio("Stile del Diario:", ["Standard", "Cinema"])
     
     st.markdown("---")
+    st.markdown("### Diario Completo")
+    if lista_ricordi:
+        # Creiamo il flusso narrativo continuo
+        flusso_narrativo = ""
+        for r in lista_ricordi:
+            data_r = r['created_at'][:10]
+            flusso_narrativo += f"**{r['titolo']}** ({data_r})\n\n{r['diario_pulito']}\n\n---\n\n"
+        
+        # Area a scorrimento per leggere tutto il libro
+        st.markdown(flusso_narrativo)
+    else:
+        st.write("Nessun ricordo presente.")
+
+    st.markdown("---")
     if st.button("Sincronizza Libro su PC"):
-        st.info("Sincronizzazione Cloud attiva.")
+        with st.spinner("Aggiornamento file locale in corso..."):
+            percorso = sincronizza_libro_locale()
+            if percorso:
+                st.success(f"File aggiornato in: {percorso}")
+            else:
+                st.info("Sincronizzazione completata (Cloud Mode).")
 
 # --- AREA DI REGISTRAZIONE ---
 st.write("")
@@ -78,14 +97,13 @@ with col2:
                 if st.button("SCARTA"):
                     reset_totale()
 
-# --- IL MIO LIBRO ---
+# --- IL MIO LIBRO (GESTIONE CAPITOLI) ---
 st.markdown("---")
-st.markdown("## Il Mio Libro")
+st.markdown("## Gestione Capitoli")
 if lista_ricordi:
     for ricordo in lista_ricordi:
         with st.expander(f"{ricordo['titolo']}"):
             nuovo_testo = st.text_area("Contenuto:", value=ricordo.get('diario_pulito', ''), key=f"edit_{ricordo['id']}", height=150)
-            
             col_a, col_b = st.columns([3, 1])
             with col_a:
                 if st.button("Salva Modifica", key=f"btn_up_{ricordo['id']}"):
@@ -104,7 +122,6 @@ if lista_ricordi:
     for ricordo in reversed(lista_ricordi):
         with st.expander(f"Audio: {ricordo['titolo']}"):
             st.audio(ricordo['audio_url'])
-            # Tasto per eliminazione fisica di audio e record
             if st.button("Elimina audio", key=f"btn_del_arc_{ricordo['id']}"):
                 if elimina_ricordo(ricordo['id'], ricordo.get('audio_url')):
                     st.rerun()
