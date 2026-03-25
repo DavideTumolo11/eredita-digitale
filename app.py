@@ -105,6 +105,6 @@ if lista_ricordi:
         with st.expander(f"Audio: {ricordo['titolo']}"):
             st.audio(ricordo['audio_url'])
             # Tasto per eliminazione fisica di audio e record
-            if st.button("Elimina audio e testo", key=f"btn_del_arc_{ricordo['id']}"):
+            if st.button("Elimina audio", key=f"btn_del_arc_{ricordo['id']}"):
                 if elimina_ricordo(ricordo['id'], ricordo.get('audio_url')):
                     st.rerun()
