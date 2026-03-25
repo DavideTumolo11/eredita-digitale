@@ -27,7 +27,6 @@ def salva_ricordo(audio_path, trascrizione_grezza, testo_pulito, stile, titolo):
         
         # Otteniamo l'URL pubblico del file audio
         res_url = supabase.storage.from_("audio_ricordi").get_public_url(file_name)
-        # Gestione flessibile dell'oggetto risposta per estrarre l'URL
         if hasattr(res_url, 'public_url'):
             audio_url = res_url.public_url
         elif isinstance(res_url, dict):
@@ -65,12 +64,23 @@ def carica_ricordi():
         print(f"Errore nel recupero dati: {e}")
         return []
 
-def elimina_ricordo(ricordo_id):
+def elimina_ricordo(ricordo_id, audio_url=None):
     """
-    Rimuove un ricordo dal database.
+    Rimuove un ricordo dal database e il relativo file audio dallo storage.
     """
     try:
+        # 1. Elimina il testo dal database
         supabase.table("ricordi").delete().eq("id", ricordo_id).execute()
+        
+        # 2. Elimina il file audio dallo storage se l'URL è presente
+        if audio_url:
+            try:
+                # Estraiamo il nome del file dall'URL pubblico
+                file_name = audio_url.split("/")[-1]
+                supabase.storage.from_("audio_ricordi").remove([file_name])
+            except Exception as e:
+                print(f"File audio non trovato o già rimosso: {e}")
+        
         return True
     except Exception as e:
         print(f"Errore eliminazione: {e}")
