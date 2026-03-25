@@ -26,7 +26,7 @@ def reset_totale():
 # Recupero della lista ricordi
 lista_ricordi = carica_ricordi()
 
-# SIDEBAR RIPRISTINATA
+# SIDEBAR
 with st.sidebar:
     st.markdown("### Stato Sistema")
     st.write("Database: Collegato")
@@ -93,9 +93,7 @@ if lista_ricordi:
                         st.success("Modificato.")
                         st.rerun()
             with col_b:
-                # TASTO ELIMINA (CANCELLA TUTTO)
-                if st.button("Elimina", key=f"btn_del_{ricordo['id']}"):
-                    # Passiamo l'URL per poter cancellare anche il file fisico
+                if st.button("Elimina", key=f"btn_del_book_{ricordo['id']}"):
                     if elimina_ricordo(ricordo['id'], ricordo.get('audio_url')):
                         st.rerun()
 
@@ -106,3 +104,7 @@ if lista_ricordi:
     for ricordo in reversed(lista_ricordi):
         with st.expander(f"Audio: {ricordo['titolo']}"):
             st.audio(ricordo['audio_url'])
+            # Tasto per eliminazione fisica di audio e record
+            if st.button("Elimina audio e testo", key=f"btn_del_arc_{ricordo['id']}"):
+                if elimina_ricordo(ricordo['id'], ricordo.get('audio_url')):
+                    st.rerun()
