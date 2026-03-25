@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 from datetime import datetime 
 
 # Carichiamo le chiavi (compatibile con .env locale e Secrets del Cloud)
-load_dotenv()
+if os.path.exists(".env"):
+    load_dotenv()
 
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
@@ -25,22 +26,27 @@ def salva_ricordo(audio_path, trascrizione_grezza, testo_pulito, stile, titolo):
             supabase.storage.from_("audio_ricordi").upload(file_name, f)
         
         # Otteniamo l'URL pubblico del file audio
-        # Nota: .get_public_url su alcune versioni torna un oggetto, su altre una stringa
         res_url = supabase.storage.from_("audio_ricordi").get_public_url(file_name)
-        audio_url = res_url if isinstance(res_url, str) else res_url.get('publicURL', res_url)
+        # Gestione flessibile dell'oggetto risposta per estrarre l'URL
+        if hasattr(res_url, 'public_url'):
+            audio_url = res_url.public_url
+        elif isinstance(res_url, dict):
+            audio_url = res_url.get('publicURL', res_url)
+        else:
+            audio_url = str(res_url)
         
         # 2. Inserimento dati nella tabella 'ricordi'
         data = {
             "titolo": titolo,
             "trascrizione_grezza": trascrizione_grezza,
             "diario_pulito": testo_pulito,
-            "audio_url": str(audio_url),       
+            "audio_url": str(audio_url),      
             "stile_usato": stile
         }
         
         supabase.table("ricordi").insert(data).execute()
         
-        # Aggiornamento automatico del "Libro" locale se siamo sul PC
+        # Sincronizzazione locale (se siamo sul PC)
         sincronizza_libro_locale()
         
         return True
@@ -50,37 +56,55 @@ def salva_ricordo(audio_path, trascrizione_grezza, testo_pulito, stile, titolo):
 
 def carica_ricordi():
     """
-    Recupera tutti i ricordi salvati dal database, ordinati dal più vecchio al più recente 
-    per formare il "Libro" cronologico.
+    Recupera tutti i ricordi ordinati dal più vecchio al più recente.
     """
     try:
-        # Ordiniamo per created_at ASC per avere la storia che prosegue nel tempo
         response = supabase.table("ricordi").select("*").order("created_at", desc=False).execute()
         return response.data
     except Exception as e:
         print(f"Errore nel recupero dati: {e}")
         return []
 
-def sincronizza_libro_locale():
+def elimina_ricordo(ricordo_id):
     """
-    Questa funzione scarica tutto e crea il file unico sul PC.
-    Viene ignorata se l'app gira sul Cloud (iPhone).
+    Rimuove un ricordo dal database.
     """
     try:
-        # Percorso del tuo file sul PC (modificalo se necessario)
-        path_pc = "D:/Archivio/Desktop/EreditaDigitale/Il_Mio_Libro_Digitale.txt"
+        supabase.table("ricordi").delete().eq("id", ricordo_id).execute()
+        return True
+    except Exception as e:
+        print(f"Errore eliminazione: {e}")
+        return False
+
+def aggiorna_ricordo(ricordo_id, nuovo_testo):
+    """
+    Aggiorna il testo elaborato di un ricordo esistente.
+    """
+    try:
+        supabase.table("ricordi").update({"diario_pulito": nuovo_testo}).eq("id", ricordo_id).execute()
+        return True
+    except Exception as e:
+        print(f"Errore aggiornamento: {e}")
+        return False
+
+def sincronizza_libro_locale():
+    """
+    Crea il file unico sul PC. Ignorato se l'app gira sul Cloud.
+    """
+    try:
+        path_cartella = "D:/Archivio/Desktop/EreditaDigitale"
+        path_pc = f"{path_cartella}/Il_Mio_Libro_Digitale.txt"
         
-        # Controlliamo se siamo sul PC (se esiste il percorso della cartella)
-        if os.path.exists("D:/Archivio/Desktop/EreditaDigitale"):
+        if os.path.exists(path_cartella):
             ricordi = carica_ricordi()
             with open(path_pc, "w", encoding="utf-8") as f:
                 f.write("======= IL MIO DIARIO - EREDITÀ DIGITALE =======\n\n")
                 for r in ricordi:
-                    data_f = r['created_at'][:10] # Prende solo YYYY-MM-DD
+                    data_f = r['created_at'][:10]
                     f.write(f"--- {r['titolo']} ({data_f}) ---\n")
                     f.write(f"{r['diario_pulito']}\n\n")
                     f.write("*" * 40 + "\n\n")
-            print("Libro locale aggiornato con successo.")
-    except Exception as e:
-        # In cloud fallirà silenziosamente perché il percorso D:/ non esiste
+            return path_pc
+    except Exception:
         pass
+    return None
