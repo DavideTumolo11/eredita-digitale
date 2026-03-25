@@ -39,25 +39,24 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### Diario Completo")
     if lista_ricordi:
-        # Creiamo il flusso narrativo continuo
         flusso_narrativo = ""
         for r in lista_ricordi:
-            data_r = r['created_at'][:10]
-            flusso_narrativo += f"**{r['titolo']}** ({data_r})\n\n{r['diario_pulito']}\n\n---\n\n"
+            # Pulizia data per la visualizzazione
+            data_str = r.get('created_at', '')[:10]
+            flusso_narrativo += f"**{r['titolo']}** ({data_str})\n\n{r['diario_pulito']}\n\n---\n\n"
         
-        # Area a scorrimento per leggere tutto il libro
         st.markdown(flusso_narrativo)
     else:
         st.write("Nessun ricordo presente.")
 
     st.markdown("---")
     if st.button("Sincronizza Libro su PC"):
-        with st.spinner("Aggiornamento file locale in corso..."):
-            percorso = sincronizza_libro_locale()
-            if percorso:
-                st.success(f"File aggiornato in: {percorso}")
+        with st.spinner("Lancio sincronizzazione locale..."):
+            # Questa funzione ora lancia il comando python sincronizzatore_pc.py
+            if sincronizza_libro_locale():
+                st.success("File .txt aggiornato sul tuo PC!")
             else:
-                st.info("Sincronizzazione completata (Cloud Mode).")
+                st.info("Sincronizzazione Cloud completata. Se sei su PC, verifica che Python sia nel PATH.")
 
 # --- AREA DI REGISTRAZIONE ---
 st.write("")
