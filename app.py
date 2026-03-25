@@ -17,21 +17,27 @@ if 'reset_counter' not in st.session_state:
     st.session_state['reset_counter'] = 0
 
 def reset_totale():
-    # Pulizia di tutte le cache di testo
     for k in ['testo_pulito_cache', 'testo_grezzo_cache', 'last_audio_id', 'audio_bytes_cache']:
         if k in st.session_state:
             del st.session_state[k]
-    # Incremento del contatore per forzare il widget a sparire
     st.session_state['reset_counter'] += 1
     st.rerun()
 
 # Recupero della lista ricordi
 lista_ricordi = carica_ricordi()
 
+# SIDEBAR RIPRISTINATA
 with st.sidebar:
-    st.markdown("### Impostazioni")
-    stile_editing = st.radio("Stile:", ["Standard", "Cinema"])
-    if st.button("Sincronizza su PC"):
+    st.markdown("### Stato Sistema")
+    st.write("Database: Collegato")
+    st.write("AI: Selezione Automatica (Multi-AI)")
+    
+    st.markdown("---")
+    st.markdown("### Impostazioni Scrittura")
+    stile_editing = st.radio("Stile del Diario:", ["Standard", "Cinema"])
+    
+    st.markdown("---")
+    if st.button("Sincronizza Libro su PC"):
         st.info("Sincronizzazione Cloud attiva.")
 
 # --- AREA DI REGISTRAZIONE ---
@@ -39,7 +45,6 @@ st.write("")
 col1, col2, col3 = st.columns([1, 2, 1])
 
 with col2:
-    # La chiave dinamica (key) costringe il widget a resettarsi dopo il rerun
     audio_record = mic_recorder(
         start_prompt="AVVIA REGISTRAZIONE",
         stop_prompt="STOP (ELABORA)",
@@ -73,14 +78,13 @@ with col2:
                 if st.button("SCARTA"):
                     reset_totale()
 
-# --- IL MIO LIBRO (MODIFICABILE) ---
+# --- IL MIO LIBRO ---
 st.markdown("---")
 st.markdown("## Il Mio Libro")
 if lista_ricordi:
     for ricordo in lista_ricordi:
         with st.expander(f"{ricordo['titolo']}"):
-            # Area di testo per ogni ricordo salvato
-            nuovo_testo = st.text_area("Testo salvato:", value=ricordo.get('diario_pulito', ''), key=f"edit_{ricordo['id']}", height=150)
+            nuovo_testo = st.text_area("Contenuto:", value=ricordo.get('diario_pulito', ''), key=f"edit_{ricordo['id']}", height=150)
             
             col_a, col_b = st.columns([3, 1])
             with col_a:
@@ -89,11 +93,11 @@ if lista_ricordi:
                         st.success("Modificato.")
                         st.rerun()
             with col_b:
+                # TASTO ELIMINA (CANCELLA TUTTO)
                 if st.button("Elimina", key=f"btn_del_{ricordo['id']}"):
-                    if elimina_ricordo(ricordo['id']):
+                    # Passiamo l'URL per poter cancellare anche il file fisico
+                    if elimina_ricordo(ricordo['id'], ricordo.get('audio_url')):
                         st.rerun()
-else:
-    st.write("Inizia a raccontare per riempire il libro.")
 
 # --- ARCHIVIO AUDIO ---
 st.markdown("---")
@@ -102,4 +106,3 @@ if lista_ricordi:
     for ricordo in reversed(lista_ricordi):
         with st.expander(f"Audio: {ricordo['titolo']}"):
             st.audio(ricordo['audio_url'])
-            st.info(f"Stile: {ricordo.get('stile_usato', 'Standard')}")
