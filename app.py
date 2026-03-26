@@ -26,6 +26,11 @@ def reset_totale():
 # Recupero della lista ricordi
 lista_ricordi = carica_ricordi()
 
+# Preparazione del testo fluido (Libro Digitale)
+testo_libro_fluido = ""
+if lista_ricordi:
+    testo_libro_fluido = " ".join([r['diario_pulito'] for r in lista_ricordi])
+
 # --- SIDEBAR: STATO, LIBRO E SINCRONIZZAZIONE ---
 with st.sidebar:
     st.markdown("### Stato Sistema")
@@ -46,18 +51,12 @@ with st.sidebar:
                 st.info("Sincronizzazione Cloud completata. Se sei su PC, verifica che Python sia nel PATH.")
 
     st.markdown("---")
-    # VISUALIZZAZIONE LIBRO DIGITALE (Sotto il pulsante)
-    st.markdown("### Il Mio Libro Digitale")
-    if lista_ricordi:
-        testo_libro_completo = "======= IL MIO DIARIO =======\n\n"
-        for r in lista_ricordi:
-            data_str = r.get('created_at', '')[:10]
-            testo_libro_completo += f"--- {r['titolo']} ({data_str}) ---\n{r['diario_pulito']}\n\n"
-        
-        # Area di testo fissa per la lettura fluida
-        st.text_area("Contenuto attuale del libro:", value=testo_libro_completo, height=400, disabled=True)
+    # VISUALIZZAZIONE LIBRO NELLA SIDEBAR (Anteprima fluida)
+    st.markdown("### Anteprima Libro")
+    if testo_libro_fluido:
+        st.text_area("Flusso narrativo:", value=testo_libro_fluido, height=300, disabled=True, key="sidebar_book")
     else:
-        st.write("Nessun ricordo presente.")
+        st.write("Inizia a registrare per comporre il libro.")
 
 # --- AREA DI REGISTRAZIONE ---
 st.write("")
@@ -73,16 +72,21 @@ with col2:
 
     if audio_record:
         if 'last_audio_id' not in st.session_state or st.session_state.get('last_audio_id') != audio_record['id']:
-            with st.spinner("L'IA sta elaborando..."):
+            with st.spinner("L'IA sta leggendo il libro e collegando i pensieri..."):
                 testo_grezzo = trascrivi_audio(audio_record['bytes'])
-                st.session_state['testo_pulito_cache'] = pulisci_testo(testo_grezzo, modalita=stile_editing)
+                
+                # Recuperiamo le ultime 300 battute per dare contesto all'IA
+                contesto_recente = testo_libro_fluido[-300:] if testo_libro_fluido else ""
+                
+                # Passiamo il contesto alla funzione pulisci_testo
+                st.session_state['testo_pulito_cache'] = pulisci_testo(testo_grezzo, modalita=stile_editing, contesto=contesto_recente)
                 st.session_state['testo_grezzo_cache'] = testo_grezzo
                 st.session_state['last_audio_id'] = audio_record['id']
                 st.session_state['audio_bytes_cache'] = audio_record['bytes']
 
         if 'testo_pulito_cache' in st.session_state:
-            st.markdown("### Il tuo Racconto")
-            testo_finale = st.text_area("Modifica il testo:", value=st.session_state['testo_pulito_cache'], height=250)
+            st.markdown("### Nuova aggiunta al Libro")
+            testo_finale = st.text_area("Modifica o conferma l'unione:", value=st.session_state['testo_pulito_cache'], height=250)
             
             c1, c2 = st.columns(2)
             with c1:
@@ -97,7 +101,20 @@ with col2:
                 if st.button("SCARTA"):
                     reset_totale()
 
-# --- IL MIO LIBRO (GESTIONE CAPITOLI) ---
+# --- IL MIO LIBRO DIGITALE (VISUALIZZAZIONE HOME) ---
+st.markdown("---")
+st.markdown("## 📖 Il Mio Libro Digitale")
+if testo_libro_fluido:
+    # Mostra il libro come un unico grande blocco di testo leggibile
+    st.markdown(f"""
+    <div style="background-color: #fdf5e6; padding: 30px; border-radius: 10px; border: 1px solid #d2b48c; font-family: 'Georgia', serif; line-height: 1.6; color: #3e2723;">
+        {testo_libro_fluido}
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.info("Il tuo libro è ancora bianco. Registra il primo pensiero per iniziare.")
+
+# --- GESTIONE CAPITOLI ---
 st.markdown("---")
 st.markdown("## Gestione Capitoli")
 if lista_ricordi:
