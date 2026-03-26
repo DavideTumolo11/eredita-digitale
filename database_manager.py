@@ -79,18 +79,29 @@ def aggiorna_ricordo(ricordo_id, nuovo_testo):
 
 def sincronizza_libro_locale():
     """
-    Questa funzione ora lancia lo script python tramite CMD.
-    Funziona solo se l'app e lanciata localmente sul tuo PC.
+    Scrive direttamente il file sul disco D senza passare dal CMD.
+    Funziona se l'app gira sul PC dove esiste il percorso D:/Archivio...
     """
     try:
         path_cartella = r"D:\Archivio\Desktop\EreditaDigitale"
-        script_path = os.path.join(path_cartella, "sincronizzatore_pc.py")
+        path_pc = os.path.join(path_cartella, "Il_Mio_Libro_Digitale.txt")
         
-        if os.path.exists(script_path):
-            # Usiamo subprocess per lanciare il comando python come nel CMD
-            # shell=True permette di usare le variabili d'ambiente del PC
-            subprocess.run(["python", script_path], shell=True, check=True)
-            return True
+        # Se non siamo sul PC dove esiste la cartella, usciamo senza errori
+        if not os.path.exists(path_cartella):
+            return None
+
+        # Recuperiamo i ricordi aggiornati
+        ricordi = carica_ricordi()
+        
+        if ricordi:
+            with open(path_pc, "w", encoding="utf-8") as f:
+                f.write("======= IL MIO DIARIO - EREDITÀ DIGITALE =======\n\n")
+                for r in ricordi:
+                    data_f = r.get('created_at', '')[:10]
+                    f.write(f"--- {r['titolo']} ({data_f}) ---\n")
+                    f.write(f"{r['diario_pulito']}\n\n")
+                    f.write("-" * 30 + "\n\n")
+            return path_pc
     except Exception as e:
-        print(f"Errore sincronizzazione: {e}")
-    return False
+        print(f"Errore scrittura file locale: {e}")
+    return None
