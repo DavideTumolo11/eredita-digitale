@@ -79,28 +79,25 @@ def aggiorna_ricordo(ricordo_id, nuovo_testo):
 
 def sincronizza_libro_locale():
     """
-    Scrive direttamente il file sul disco D senza passare dal CMD.
-    Funziona se l'app gira sul PC dove esiste il percorso D:/Archivio...
+    Scrive il libro come testo fluido sul disco D.
     """
     try:
         path_cartella = r"D:\Archivio\Desktop\EreditaDigitale"
         path_pc = os.path.join(path_cartella, "Il_Mio_Libro_Digitale.txt")
         
-        # Se non siamo sul PC dove esiste la cartella, usciamo senza errori
         if not os.path.exists(path_cartella):
             return None
 
-        # Recuperiamo i ricordi aggiornati
         ricordi = carica_ricordi()
         
         if ricordi:
+            # Creiamo il flusso di testo unendo tutti i pezzi salvati
+            libro_fluido = " ".join([r['diario_pulito'] for r in ricordi])
+            
             with open(path_pc, "w", encoding="utf-8") as f:
-                f.write("======= IL MIO DIARIO - EREDITÀ DIGITALE =======\n\n")
-                for r in ricordi:
-                    data_f = r.get('created_at', '')[:10]
-                    f.write(f"--- {r['titolo']} ({data_f}) ---\n")
-                    f.write(f"{r['diario_pulito']}\n\n")
-                    f.write("-" * 30 + "\n\n")
+                f.write("======= IL MIO DIARIO DIGITALE =======\n\n")
+                f.write(libro_fluido)
+                f.write("\n\n" + "=" * 30)
             return path_pc
     except Exception as e:
         print(f"Errore scrittura file locale: {e}")
