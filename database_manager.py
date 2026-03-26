@@ -1,5 +1,6 @@
 import os
 import subprocess
+import textwrap
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from datetime import datetime 
@@ -79,7 +80,7 @@ def aggiorna_ricordo(ricordo_id, nuovo_testo):
 
 def sincronizza_libro_locale():
     """
-    Scrive il libro come testo fluido sul disco D.
+    Scrive il libro come testo fluido sul disco D con numerazione pagine e margini.
     """
     try:
         path_cartella = r"D:\Archivio\Desktop\EreditaDigitale"
@@ -91,12 +92,17 @@ def sincronizza_libro_locale():
         ricordi = carica_ricordi()
         
         if ricordi:
-            # Creiamo il flusso di testo unendo tutti i pezzi salvati
-            libro_fluido = " ".join([r['diario_pulito'] for r in ricordi])
+            testo_completo = ""
+            # Ciclo per aggiungere il numero di pagina a ogni blocco di testo
+            for i, r in enumerate(ricordi, 1):
+                testo_completo += f"\n[PAGINA {i}]\n{r['diario_pulito']}\n"
+            
+            # Forza l'andata a capo ogni 90 caratteri per creare i margini nel file .txt
+            testo_impaginato = textwrap.fill(testo_completo, width=90, replace_whitespace=False)
             
             with open(path_pc, "w", encoding="utf-8") as f:
                 f.write("======= IL MIO DIARIO DIGITALE =======\n\n")
-                f.write(libro_fluido)
+                f.write(testo_impaginato)
                 f.write("\n\n" + "=" * 30)
             return path_pc
     except Exception as e:
