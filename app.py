@@ -37,26 +37,27 @@ with st.sidebar:
     stile_editing = st.radio("Stile del Diario:", ["Standard", "Cinema"])
     
     st.markdown("---")
-    st.markdown("### Diario Completo")
-    if lista_ricordi:
-        flusso_narrativo = ""
-        for r in lista_ricordi:
-            # Pulizia data per la visualizzazione
-            data_str = r.get('created_at', '')[:10]
-            flusso_narrativo += f"**{r['titolo']}** ({data_str})\n\n{r['diario_pulito']}\n\n---\n\n"
-        
-        st.markdown(flusso_narrativo)
-    else:
-        st.write("Nessun ricordo presente.")
-
-    st.markdown("---")
+    # PULSANTE SINCRONIZZAZIONE
     if st.button("Sincronizza Libro su PC"):
         with st.spinner("Lancio sincronizzazione locale..."):
-            # Questa funzione ora lancia il comando python sincronizzatore_pc.py
             if sincronizza_libro_locale():
                 st.success("File .txt aggiornato sul tuo PC!")
             else:
                 st.info("Sincronizzazione Cloud completata. Se sei su PC, verifica che Python sia nel PATH.")
+
+    st.markdown("---")
+    # VISUALIZZAZIONE LIBRO DIGITALE (Sotto il pulsante)
+    st.markdown("### Il Mio Libro Digitale")
+    if lista_ricordi:
+        testo_libro_completo = "======= IL MIO DIARIO =======\n\n"
+        for r in lista_ricordi:
+            data_str = r.get('created_at', '')[:10]
+            testo_libro_completo += f"--- {r['titolo']} ({data_str}) ---\n{r['diario_pulito']}\n\n"
+        
+        # Area di testo fissa per la lettura fluida
+        st.text_area("Contenuto attuale del libro:", value=testo_libro_completo, height=400, disabled=True)
+    else:
+        st.write("Nessun ricordo presente.")
 
 # --- AREA DI REGISTRAZIONE ---
 st.write("")
