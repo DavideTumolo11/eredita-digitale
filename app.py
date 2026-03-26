@@ -5,31 +5,30 @@ from streamlit_mic_recorder import mic_recorder
 from editor_invisibile import trascrivi_audio, pulisci_testo
 from database_manager import salva_ricordo, carica_ricordi, elimina_ricordo, aggiorna_ricordo, sincronizza_libro_locale
 from datetime import datetime 
-from fpdf import FPDF # Libreria per il PDF
+from fpdf import FPDF 
 
 # Configurazione pagina
 st.set_page_config(page_title="Eredità Digitale", layout="centered")
 apply_styles()
 
-# --- FUNZIONE GENERAZIONE PDF ---
+# --- FUNZIONE GENERAZIONE PDF CORRETTA ---
 def genera_pdf(testo_completo):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
-    # Usiamo un font standard che supporta bene i caratteri latini
     pdf.set_font("Times", size=12)
     
-    # Titolo del libro nel PDF
+    # Titolo (Aggiornato con nuovi parametri per evitare Warning)
     pdf.set_font("Times", style="B", size=16)
-    pdf.cell(200, 10, txt="IL MIO DIARIO DIGITALE", ln=True, align='C')
+    pdf.cell(200, 10, text="IL MIO DIARIO DIGITALE", align='C', new_x="LMARGIN", new_y="NEXT")
     pdf.ln(10)
     
-    # Corpo del testo
+    # Corpo del testo (Aggiornato con 'text' al posto di 'txt')
     pdf.set_font("Times", size=12)
-    # multi_cell gestisce automaticamente l'andata a capo
-    pdf.multi_cell(0, 10, txt=testo_completo)
+    pdf.multi_cell(0, 10, text=testo_completo)
     
-    return pdf.output(dest='S') # Restituisce i bytes del PDF
+    # Conversione esplicita in bytes per Streamlit
+    return bytes(pdf.output()) 
 
 # --- AGGIORNAMENTO: GESTIONE PAGINA ATTIVA ---
 if 'pagina_attiva' not in st.session_state:
@@ -79,7 +78,6 @@ with st.sidebar:
     st.write("AI: Selezione Automatica")
     st.markdown("---")
     
-    # --- PULSANTI DI ESPORTAZIONE ---
     st.markdown("### Esporta Libro")
     if st.button("Sincronizza Libro su PC"):
         with st.spinner("Sincronizzazione..."):
@@ -87,13 +85,17 @@ with st.sidebar:
                 st.success("File .txt aggiornato!")
     
     if testo_libro_fluido:
-        pdf_bytes = genera_pdf(testo_libro_fluido)
-        st.download_button(
-            label="Scarica File PDF",
-            data=pdf_bytes,
-            file_name="Il_Mio_Libro_Digitale.pdf",
-            mime="application/pdf"
-        )
+        # Generazione PDF sicura
+        try:
+            pdf_data = genera_pdf(testo_libro_fluido)
+            st.download_button(
+                label="Scarica File PDF",
+                data=pdf_data,
+                file_name=f"Diario_{datetime.now().strftime('%Y%m%d')}.pdf",
+                mime="application/pdf"
+            )
+        except Exception as e:
+            st.error(f"Errore PDF: {e}")
     
     st.markdown("---")
     st.markdown("### Impostazioni Scrittura")
