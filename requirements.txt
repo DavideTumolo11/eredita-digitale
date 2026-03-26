@@ -1,5 +1,6 @@
 streamlit
 streamlit-mic-recorder
-supabase
-python-dotenv
+fpdf2
 requests
+python-dotenv
+supabase
