@@ -80,7 +80,7 @@ def aggiorna_ricordo(ricordo_id, nuovo_testo):
 
 def sincronizza_libro_locale():
     """
-    Scrive il libro come testo fluido sul disco D con numerazione pagine e margini.
+    Scrive il libro come testo fluido sul disco D con logica temporale e impaginazione reale.
     """
     try:
         path_cartella = r"D:\Archivio\Desktop\EreditaDigitale"
@@ -92,18 +92,38 @@ def sincronizza_libro_locale():
         ricordi = carica_ricordi()
         
         if ricordi:
-            testo_completo = ""
-            # Ciclo per aggiungere il numero di pagina a ogni blocco di testo
-            for i, r in enumerate(ricordi, 1):
-                testo_completo += f"\n[PAGINA {i}]\n{r['diario_pulito']}\n"
+            testo_fluido = ""
+            ultima_data = None
             
-            # Forza l'andata a capo ogni 90 caratteri per creare i margini nel file .txt
-            testo_impaginato = textwrap.fill(testo_completo, width=90, replace_whitespace=False)
+            # 1. Creazione del flusso temporale
+            for r in ricordi:
+                data_corrente = r.get('created_at', datetime.now().isoformat())[:10]
+                testo = r['diario_pulito'].strip()
+                
+                if ultima_data is None:
+                    testo_fluido += testo
+                elif data_corrente == ultima_data:
+                    testo_fluido += " " + testo
+                else:
+                    testo_fluido += "\n\n" + testo
+                ultima_data = data_corrente
             
+            # 2. Suddivisione in pagine reali (circa 2500 caratteri)
+            limite_pag = 2500
+            pagine = [testo_fluido[i:i+limite_pag] for i in range(0, len(testo_fluido), limite_pag)]
+            
+            # 3. Formattazione finale del file .txt
             with open(path_pc, "w", encoding="utf-8") as f:
                 f.write("======= IL MIO DIARIO DIGITALE =======\n\n")
-                f.write(testo_impaginato)
-                f.write("\n\n" + "=" * 30)
+                
+                for i, contenuto_pag in enumerate(pagine, 1):
+                    # Applichiamo i margini a 90 caratteri per ogni pagina
+                    testo_margini = textwrap.fill(contenuto_pag, width=90, replace_whitespace=False)
+                    f.write(testo_margini)
+                    f.write(f"\n\n[ Pagina {i} ]\n")
+                    f.write("-" * 40 + "\n\n") # Separatore visivo tra pagine nel file di testo
+                
+                f.write("\n" + "=" * 30)
             return path_pc
     except Exception as e:
         print(f"Errore scrittura file locale: {e}")
