@@ -134,8 +134,21 @@ else:
     # --- PAGINA LETTURA (IL TUO LIBRO INTERO) ---
     st.markdown("<h1>Il Mio Libro Digitale</h1>", unsafe_allow_html=True)
     
-    if testo_libro_fluido:
-        # Il CSS word-wrap e overflow-wrap impediscono al testo di uscire a destra
+    # SEZIONE RICERCA INTELLIGENTE IA
+    with st.expander("Chiedi all'IA di cercare nel contesto del libro"):
+        domanda_ricerca = st.text_input("Cosa vuoi trovare? (es. 'Cerca quando parlavo di...')")
+        if domanda_ricerca and st.button("Interroga il Libro"):
+            with st.spinner("L'IA sta analizzando il tuo racconto..."):
+                prompt_ricerca = f"Basandoti esclusivamente sul contenuto del mio diario, rispondi a questa domanda o trova questo contesto: {domanda_ricerca}"
+                risposta_ia = pulisci_testo(prompt_ricerca, contesto=testo_libro_fluido)
+                st.info(risposta_ia)
+
+    if lista_ricordi:
+        # Costruiamo il testo includendo la numerazione delle pagine
+        testo_paginato = ""
+        for i, r in enumerate(lista_ricordi, 1):
+            testo_paginato += f"<span style='color: #8b4513; font-weight: bold;'>[Pag. {i}]</span> {r['diario_pulito']} <br><br>"
+
         st.markdown(f"""
         <div style="
             background-color: #fdf5e6; 
@@ -149,7 +162,7 @@ else:
             overflow-wrap: break-word;
             white-space: pre-wrap;
         ">
-            {testo_libro_fluido}
+            {testo_paginato}
         </div>
         """, unsafe_allow_html=True)
     else:
