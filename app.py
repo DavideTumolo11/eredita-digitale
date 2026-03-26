@@ -14,7 +14,6 @@ apply_styles()
 if 'pagina_attiva' not in st.session_state:
     st.session_state['pagina_attiva'] = "Scrittura"
 
-# Inizializzazione contatore per resettare il widget audio
 if 'reset_counter' not in st.session_state:
     st.session_state['reset_counter'] = 0
 
@@ -28,41 +27,51 @@ def reset_totale():
 # Recupero della lista ricordi
 lista_ricordi = carica_ricordi()
 
-# Preparazione del testo fluido (Libro Digitale)
+# --- LOGICA FLUSSO TEMPORALE ---
 testo_libro_fluido = ""
 if lista_ricordi:
-    testo_libro_fluido = " ".join([r['diario_pulito'] for r in lista_ricordi])
+    testo_sezionato = []
+    ultima_data = None
+    
+    for r in lista_ricordi:
+        # Estraiamo la data (assumendo che created_at sia disponibile o usando il titolo se contiene la data)
+        # Se Supabase non restituisce created_at, usiamo il timestamp corrente come fallback
+        data_corrente = r.get('created_at', datetime.now().isoformat())[:10] 
+        
+        testo = r['diario_pulito'].strip()
+        
+        if ultima_data is None:
+            testo_sezionato.append(testo)
+        elif data_corrente == ultima_data:
+            testo_sezionato.append(" " + testo) # Stesso giorno: solo uno spazio
+        else:
+            testo_sezionato.append("\n\n" + testo) # Giorno diverso: doppia riga vuota
+            
+        ultima_data = data_corrente
+    
+    testo_libro_fluido = "".join(testo_sezionato)
 
-# --- SIDEBAR: STATO, LIBRO E SINCRONIZZAZIONE ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.markdown("### Navigazione")
-    # Nuovo selettore per cambiare visualizzazione
     st.session_state['pagina_attiva'] = st.radio("Vai a:", ["Scrittura", "Lettura Libro"])
-    
     st.markdown("---")
     st.markdown("### Stato Sistema")
     st.write("Database: Collegato")
-    st.write("AI: Selezione Automatica (Multi-AI)")
-    
+    st.write("AI: Selezione Automatica")
     st.markdown("---")
     st.markdown("### Impostazioni Scrittura")
     stile_editing = st.radio("Stile del Diario:", ["Standard", "Cinema"])
-    
     st.markdown("---")
-    # PULSANTE SINCRONIZZAZIONE
     if st.button("Sincronizza Libro su PC"):
-        with st.spinner("Lancio sincronizzazione locale..."):
+        with st.spinner("Sincronizzazione..."):
             if sincronizza_libro_locale():
-                st.success("File .txt aggiornato sul tuo PC!")
-            else:
-                st.info("Sincronizzazione Cloud completata. Se sei su PC, verifica che Python sia nel PATH.")
+                st.success("File .txt aggiornato!")
 
 # --- LOGICA DI VISUALIZZAZIONE ---
 
 if st.session_state['pagina_attiva'] == "Scrittura":
-    # --- PAGINA SCRITTURA (TUA DASHBOARD ORIGINALE) ---
     st.markdown("<h1>Eredità Digitale</h1>", unsafe_allow_html=True)
-    
     st.write("")
     col1, col2, col3 = st.columns([1, 2, 1])
 
@@ -76,7 +85,7 @@ if st.session_state['pagina_attiva'] == "Scrittura":
 
         if audio_record:
             if 'last_audio_id' not in st.session_state or st.session_state.get('last_audio_id') != audio_record['id']:
-                with st.spinner("L'IA sta leggendo il libro e collegando i pensieri..."):
+                with st.spinner("L'IA sta elaborando..."):
                     testo_grezzo = trascrivi_audio(audio_record['bytes'])
                     contesto_recente = testo_libro_fluido[-300:] if testo_libro_fluido else ""
                     st.session_state['testo_pulito_cache'] = pulisci_testo(testo_grezzo, modalita=stile_editing, contesto=contesto_recente)
@@ -85,9 +94,8 @@ if st.session_state['pagina_attiva'] == "Scrittura":
                     st.session_state['audio_bytes_cache'] = audio_record['bytes']
 
             if 'testo_pulito_cache' in st.session_state:
-                st.markdown("### Nuova aggiunta al Libro")
-                testo_finale = st.text_area("Modifica o conferma l'unione:", value=st.session_state['testo_pulito_cache'], height=250)
-                
+                st.markdown("### Nuova aggiunta")
+                testo_finale = st.text_area("Conferma:", value=st.session_state['testo_pulito_cache'], height=250)
                 c1, c2 = st.columns(2)
                 with c1:
                     if st.button("SALVA NEL DIARIO"):
@@ -98,10 +106,8 @@ if st.session_state['pagina_attiva'] == "Scrittura":
                             if os.path.exists(temp_fs): os.remove(temp_fs)
                             reset_totale()
                 with c2:
-                    if st.button("SCARTA"):
-                        reset_totale()
+                    if st.button("SCARTA"): reset_totale()
 
-    # GESTIONE CAPITOLI (Sempre visibile in Scrittura)
     st.markdown("---")
     st.markdown("## Gestione Capitoli")
     if lista_ricordi:
@@ -111,59 +117,76 @@ if st.session_state['pagina_attiva'] == "Scrittura":
                 col_a, col_b = st.columns([3, 1])
                 with col_a:
                     if st.button("Salva Modifica", key=f"btn_up_{ricordo['id']}"):
-                        if aggiorna_ricordo(ricordo['id'], nuovo_testo):
-                            st.success("Modificato.")
-                            st.rerun()
+                        if aggiorna_ricordo(ricordo['id'], nuovo_testo): st.rerun()
                 with col_b:
                     if st.button("Elimina", key=f"btn_del_book_{ricordo['id']}"):
-                        if elimina_ricordo(ricordo['id'], ricordo.get('audio_url')):
-                            st.rerun()
+                        if elimina_ricordo(ricordo['id'], ricordo.get('audio_url')): st.rerun()
 
-    # ARCHIVIO AUDIO (Sempre visibile in Scrittura)
     st.markdown("---")
     st.markdown("### Archivio Audio")
     if lista_ricordi:
         for ricordo in reversed(lista_ricordi):
             with st.expander(f"Audio: {ricordo['titolo']}"):
                 st.audio(ricordo['audio_url'])
-                if st.button("Elimina audio", key=f"btn_del_arc_{ricordo['id']}"):
-                    if elimina_ricordo(ricordo['id'], ricordo.get('audio_url')):
-                        st.rerun()
 
 else:
-    # --- PAGINA LETTURA (IL TUO LIBRO INTERO) ---
+    # --- PAGINA LETTURA (IL LIBRO VERO) ---
     st.markdown("<h1>Il Mio Libro Digitale</h1>", unsafe_allow_html=True)
     
-    # SEZIONE RICERCA INTELLIGENTE IA
-    with st.expander("Chiedi all'IA di cercare nel contesto del libro"):
-        domanda_ricerca = st.text_input("Cosa vuoi trovare? (es. 'Cerca quando parlavo di...')")
-        if domanda_ricerca and st.button("Interroga il Libro"):
-            with st.spinner("L'IA sta analizzando il tuo racconto..."):
-                prompt_ricerca = f"Basandoti esclusivamente sul contenuto del mio diario, rispondi a questa domanda o trova questo contesto: {domanda_ricerca}"
-                risposta_ia = pulisci_testo(prompt_ricerca, contesto=testo_libro_fluido)
+    # SEZIONE RICERCA IA (Testo + Audio)
+    with st.expander("Chiedi all'Editor (Ricerca Vocale o Testuale)"):
+        c_testo, c_audio = st.columns([3, 1])
+        domanda_vocal = None
+        
+        with c_audio:
+            audio_search = mic_recorder(start_prompt="🎤 Chiedi a voce", stop_prompt="Analizza...", key="search_mic")
+            if audio_search:
+                domanda_vocal = trascrivi_audio(audio_search['bytes'])
+                st.write(f"Hai chiesto: *{domanda_vocal}*")
+        
+        with c_testo:
+            domanda_txt = st.text_input("Oppure scrivi qui:", value=domanda_vocal if domanda_vocal else "")
+        
+        domanda_finale = domanda_txt if domanda_txt else domanda_vocal
+        
+        if domanda_finale and st.button("Interroga il Libro"):
+            with st.spinner("L'IA sta cercando..."):
+                risposta_ia = pulisci_testo(f"Trova nel libro: {domanda_finale}", contesto=testo_libro_fluido)
                 st.info(risposta_ia)
 
-    if lista_ricordi:
-        # Costruiamo il testo includendo la numerazione delle pagine
-        testo_paginato = ""
-        for i, r in enumerate(lista_ricordi, 1):
-            testo_paginato += f"<span style='color: #8b4513; font-weight: bold;'>[Pag. {i}]</span> {r['diario_pulito']} <br><br>"
-
+    if testo_libro_fluido:
+        # LOGICA IMPAGINAZIONE (Ogni 2500 caratteri una pagina)
+        limite_caratteri = 2500
+        pagine = [testo_libro_fluido[i:i+limite_caratteri] for i in range(0, len(testo_libro_fluido), limite_caratteri)]
+        
+        # Selettore pagina in alto (discreto)
+        num_pag = st.select_slider("Sfoglia le pagine", options=range(1, len(pagine) + 1))
+        
         st.markdown(f"""
         <div style="
             background-color: #fdf5e6; 
-            padding: 40px; 
-            border-radius: 10px; 
+            padding: 50px; 
+            border-radius: 5px; 
             border: 1px solid #d2b48c; 
             font-family: 'Georgia', serif; 
-            line-height: 1.8; 
+            line-height: 2; 
             color: #3e2723;
             word-wrap: break-word;
-            overflow-wrap: break-word;
-            white-space: pre-wrap;
+            min-height: 600px;
+            position: relative;
         ">
-            {testo_paginato}
+            <div style="white-space: pre-wrap;">{pagine[num_pag-1]}</div>
+            <div style="
+                position: absolute; 
+                bottom: 20px; 
+                right: 30px; 
+                font-size: 0.9em; 
+                color: #8b4513;
+                font-style: italic;
+            ">
+                Pagina {num_pag}
+            </div>
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.info("Il tuo libro è ancora bianco. Registra il primo pensiero per iniziare.")
+        st.info("Libro vuoto.")
