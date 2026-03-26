@@ -103,7 +103,7 @@ with col2:
 
 # --- IL MIO LIBRO DIGITALE (VISUALIZZAZIONE HOME) ---
 st.markdown("---")
-st.markdown("## 📖 Il Mio Libro Digitale")
+st.markdown("## Il Mio Libro Digitale")
 if testo_libro_fluido:
     # Mostra il libro come un unico grande blocco di testo leggibile
     st.markdown(f"""
