@@ -6,21 +6,41 @@ from dotenv import load_dotenv
 if os.path.exists(".env"):
     load_dotenv()
 
-def pulisci_testo(testo_grezzo, modalita="Standard"):
+def pulisci_testo(testo_grezzo, modalita="Standard", contesto=""):
     gemini_key = os.environ.get("GEMINI_API_KEY")
     groq_key = os.environ.get("GROQ_API_KEY")
     or_key = os.environ.get("OPENROUTER_API_KEY")
 
+    # Prepariamo il prompt che istruisce l'IA a raccordare i testi
+    istruzioni = ""
     if modalita == "Cinema":
-        prompt = f"Riscrivi in stile evocativo (Interstellar/Notebook): {testo_grezzo}"
+        istruzioni = "Agisci come un grande scrittore (stile Interstellar/Notebook). "
     else:
-        prompt = f"Agisci come editor invisibile, pulisci il testo parlato senza inventare nulla: {testo_grezzo}"
+        istruzioni = "Agisci come un editor invisibile che pulisce il parlato mantenendo la voce autentica. "
+
+    # Se c'è un contesto (le ultime righe del libro), diciamo all'IA di usarle per raccordare
+    prompt_completo = f"""
+    {istruzioni}
+    
+    CONTESTO PRECEDENTE (Ultime righe del libro):
+    "{contesto}"
+    
+    NUOVA TRASCRIZIONE DA AGGIUNGERE:
+    "{testo_grezzo}"
+    
+    COMPITO: 
+    Trasforma la nuova trascrizione in un testo fluido che prosegue il contesto precedente. 
+    - Se la nuova trascrizione continua il discorso precedente, usa una virgola o una congiunzione. 
+    - Se è un nuovo argomento, usa un punto. 
+    - NON inserire date, titoli, orari o etichette come 'Capitolo' o 'Ricordo'. 
+    - Restituisci SOLO il testo da aggiungere, senza ripetere il contesto.
+    """
 
     # 1. TENTATIVO GEMINI 2.0 FLASH
     if gemini_key:
         try:
             url_gemini = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
-            res = requests.post(url_gemini, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=15)
+            res = requests.post(url_gemini, json={"contents": [{"parts": [{"text": prompt_completo}]}]}, timeout=15)
             return res.json()['candidates'][0]['content']['parts'][0]['text']
         except:
             pass
@@ -32,7 +52,7 @@ def pulisci_testo(testo_grezzo, modalita="Standard"):
             headers = {"Authorization": f"Bearer {groq_key}"}
             payload = {
                 "model": "llama-3.3-70b-versatile",
-                "messages": [{"role": "user", "content": prompt}]
+                "messages": [{"role": "user", "content": prompt_completo}]
             }
             res = requests.post(url_groq, json=payload, timeout=15)
             return res.json()['choices'][0]['message']['content']
@@ -65,7 +85,7 @@ def trascrivi_audio(audio_bytes):
         except Exception as e:
             print(f"Gemini fallito, provo Whisper... {e}")
 
-    # --- 2. FALLBACK CON GROQ WHISPER (Usa la tua chiave Groq esistente) ---
+    # --- 2. FALLBACK CON GROQ WHISPER ---
     if groq_key:
         try:
             with open("temp_whisper.wav", "wb") as f:
@@ -83,7 +103,8 @@ def trascrivi_audio(audio_bytes):
                 }
                 res = requests.post(url_whisper, headers=headers, files=files, timeout=30)
             
-            os.remove("temp_whisper.wav")
+            if os.path.exists("temp_whisper.wav"):
+                os.remove("temp_whisper.wav")
             return res.json().get('text', "Errore: Whisper non ha restituito testo.")
         except Exception as e:
             return f"Errore totale: {str(e)}"
