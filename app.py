@@ -34,18 +34,15 @@ if lista_ricordi:
     ultima_data = None
     
     for r in lista_ricordi:
-        # Estraiamo la data (assumendo che created_at sia disponibile o usando il titolo se contiene la data)
-        # Se Supabase non restituisce created_at, usiamo il timestamp corrente come fallback
         data_corrente = r.get('created_at', datetime.now().isoformat())[:10] 
-        
         testo = r['diario_pulito'].strip()
         
         if ultima_data is None:
             testo_sezionato.append(testo)
         elif data_corrente == ultima_data:
-            testo_sezionato.append(" " + testo) # Stesso giorno: solo uno spazio
+            testo_sezionato.append(" " + testo)
         else:
-            testo_sezionato.append("\n\n" + testo) # Giorno diverso: doppia riga vuota
+            testo_sezionato.append("\n\n" + testo)
             
         ultima_data = data_corrente
     
@@ -133,13 +130,13 @@ else:
     # --- PAGINA LETTURA (IL LIBRO VERO) ---
     st.markdown("<h1>Il Mio Libro Digitale</h1>", unsafe_allow_html=True)
     
-    # SEZIONE RICERCA IA (Testo + Audio)
     with st.expander("Chiedi all'Editor (Ricerca Vocale o Testuale)"):
         c_testo, c_audio = st.columns([3, 1])
         domanda_vocal = None
         
         with c_audio:
-            audio_search = mic_recorder(start_prompt="🎤 Chiedi a voce", stop_prompt="Analizza...", key="search_mic")
+            # Rimosse emoji dal prompt del microfono
+            audio_search = mic_recorder(start_prompt="Chiedi a voce", stop_prompt="Analizza...", key="search_mic")
             if audio_search:
                 domanda_vocal = trascrivi_audio(audio_search['bytes'])
                 st.write(f"Hai chiesto: *{domanda_vocal}*")
@@ -155,12 +152,14 @@ else:
                 st.info(risposta_ia)
 
     if testo_libro_fluido:
-        # LOGICA IMPAGINAZIONE (Ogni 2500 caratteri una pagina)
         limite_caratteri = 2500
         pagine = [testo_libro_fluido[i:i+limite_caratteri] for i in range(0, len(testo_libro_fluido), limite_caratteri)]
         
-        # Selettore pagina in alto (discreto)
-        num_pag = st.select_slider("Sfoglia le pagine", options=range(1, len(pagine) + 1))
+        # FIX PER IL RANGE ERROR: Lo slider appare solo se ci sono più pagine
+        if len(pagine) > 1:
+            num_pag = st.select_slider("Sfoglia le pagine", options=range(1, len(pagine) + 1))
+        else:
+            num_pag = 1
         
         st.markdown(f"""
         <div style="
