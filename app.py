@@ -5,10 +5,31 @@ from streamlit_mic_recorder import mic_recorder
 from editor_invisibile import trascrivi_audio, pulisci_testo
 from database_manager import salva_ricordo, carica_ricordi, elimina_ricordo, aggiorna_ricordo, sincronizza_libro_locale
 from datetime import datetime 
+from fpdf import FPDF # Libreria per il PDF
 
 # Configurazione pagina
 st.set_page_config(page_title="Eredità Digitale", layout="centered")
 apply_styles()
+
+# --- FUNZIONE GENERAZIONE PDF ---
+def genera_pdf(testo_completo):
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    # Usiamo un font standard che supporta bene i caratteri latini
+    pdf.set_font("Times", size=12)
+    
+    # Titolo del libro nel PDF
+    pdf.set_font("Times", style="B", size=16)
+    pdf.cell(200, 10, txt="IL MIO DIARIO DIGITALE", ln=True, align='C')
+    pdf.ln(10)
+    
+    # Corpo del testo
+    pdf.set_font("Times", size=12)
+    # multi_cell gestisce automaticamente l'andata a capo
+    pdf.multi_cell(0, 10, txt=testo_completo)
+    
+    return pdf.output(dest='S') # Restituisce i bytes del PDF
 
 # --- AGGIORNAMENTO: GESTIONE PAGINA ATTIVA ---
 if 'pagina_attiva' not in st.session_state:
@@ -57,13 +78,26 @@ with st.sidebar:
     st.write("Database: Collegato")
     st.write("AI: Selezione Automatica")
     st.markdown("---")
-    st.markdown("### Impostazioni Scrittura")
-    stile_editing = st.radio("Stile del Diario:", ["Standard", "Cinema"])
-    st.markdown("---")
+    
+    # --- PULSANTI DI ESPORTAZIONE ---
+    st.markdown("### Esporta Libro")
     if st.button("Sincronizza Libro su PC"):
         with st.spinner("Sincronizzazione..."):
             if sincronizza_libro_locale():
                 st.success("File .txt aggiornato!")
+    
+    if testo_libro_fluido:
+        pdf_bytes = genera_pdf(testo_libro_fluido)
+        st.download_button(
+            label="Scarica File PDF",
+            data=pdf_bytes,
+            file_name="Il_Mio_Libro_Digitale.pdf",
+            mime="application/pdf"
+        )
+    
+    st.markdown("---")
+    st.markdown("### Impostazioni Scrittura")
+    stile_editing = st.radio("Stile del Diario:", ["Standard", "Cinema"])
 
 # --- LOGICA DI VISUALIZZAZIONE ---
 
@@ -135,7 +169,6 @@ else:
         domanda_vocal = None
         
         with c_audio:
-            # Rimosse emoji dal prompt del microfono
             audio_search = mic_recorder(start_prompt="Chiedi a voce", stop_prompt="Analizza...", key="search_mic")
             if audio_search:
                 domanda_vocal = trascrivi_audio(audio_search['bytes'])
@@ -155,7 +188,6 @@ else:
         limite_caratteri = 2500
         pagine = [testo_libro_fluido[i:i+limite_caratteri] for i in range(0, len(testo_libro_fluido), limite_caratteri)]
         
-        # FIX PER IL RANGE ERROR: Lo slider appare solo se ci sono più pagine
         if len(pagine) > 1:
             num_pag = st.select_slider("Sfoglia le pagine", options=range(1, len(pagine) + 1))
         else:
